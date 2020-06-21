@@ -2,8 +2,7 @@
 
 Based on the instructions for full encrypted debian for kimsufi servers [1]
 and on the instructions for full encrypted ubuntu servers [2], I made a so
-far half automated, but still _interactive_, script to perform these steps in
-guided manner.
+far automated script to perform these steps in guided manner.
 
 [1]: For Debian https://tina.pm/blog/posts/Setting_up_my_server:_re-installing_on_an_encripted_LVM/
 
@@ -25,3 +24,7 @@ steps below to start the installation:
 3. Copy the script in `bin/kiminstall` to your kimsufi server.
 4. Start the installation with `./kiminstall install`.
 5. Follow the installations.
+
+## Help
+
+Use `./kiminstall -h` and `./kiminstall <command> -h` for help messages.
