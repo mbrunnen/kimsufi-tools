@@ -204,7 +204,6 @@ HERE
     chroot /target apt update
     chroot /target apt full-upgrade -y
     # TODO: Choose grub installation noninteractive
-    warning 'Choose /dev/sda as grup install location'
     chroot /target apt install -y \
         busybox \
         console-setup \
@@ -248,6 +247,7 @@ HERE
     sed -i 's/^#GRUB_TERMINAL=console$/GRUB_TERMINAL=console/' /target/etc/default/grub
     sed -i 's/^#FSCKFIX=no$/FSCKFIX=yes/' /target/etc/default/rcS
     sed -i 's/^#Storage=auto$/Storage=persistent/' /etc/systemd/journald.conf
+    chroot /target grub-install /dev/sda
     chroot /target update-grub
     chroot /target update-initramfs -u
     success "System initialised"
