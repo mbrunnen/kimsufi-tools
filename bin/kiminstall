@@ -13,13 +13,13 @@ usage_msg() {
     printf "DESCRIPTION\n"
     printf "\tInstall script to install LVM on LUKS on a Kimsufi/OVH server.\n\n"
     printf "OPTIONS\n"
-    printf "\t-h            Display this help message.\n\n"
+    printf "\t-h                    Display this help message.\n\n"
     printf "COMMANDS\n"
-    printf "\tinstall       Start the installation.\n"
-    printf "\trescue        Chroot into the install system.\n"
-    printf "\tqemu          Start qemu.\n"
-    printf "\tsysmount      Mount the whole system.\n"
-    printf "\tunmount       Unmount all devices.\n"
+    printf "\tinstall               Start the installation.\n"
+    printf "\trescue                Chroot into the install system.\n"
+    printf "\tqemu                  Start qemu.\n"
+    printf "\tsysmount              Mount the whole system.\n"
+    printf "\tunmount               Unmount all devices.\n"
 }
 
 main(){
@@ -56,6 +56,61 @@ main(){
 }
 
 install(){
+    encryptionkey=none
+    hostname=none
+    domainname=none
+    sshpubkey=none
+    rootpassword=none
+    username=none
+    userpassword=none
+
+    usage_msg(){
+        printf "OPTIONS\n"
+        printf "\t-e <key>              Disk encryption key.\n"
+        printf "\t-n <name>             Host name.\n"
+        printf "\t-d <name>             Domain name.\n"
+        printf "\t-s <key>              SSH public key.\n"
+        printf "\t-r <password>         Root password.\n"
+        printf "\t-u <name>             User name.\n"
+        printf "\t-p <password>         User password.\n\n"
+    }
+
+    while getopts he:n:d:s:r:u:p: o; do
+        case "$o" in
+        h)
+            usage_msg
+            exit 0
+            ;;
+        e)
+            encryptionkey=$OPTARG
+            ;;
+        n)
+            hostname=$OPTARG
+            ;;
+        d)
+            domainname=$OPTARG
+            ;;
+        s)
+            sshpubkey=$OPTARG
+            ;;
+        r)
+            rootpassword=$OPTARG
+            ;;
+        u)
+            username=$OPTARG
+            ;;
+        p)
+            userpassword=$OPTARG
+            ;;
+        \?)
+            usage_msg
+            exit 1
+            ;;
+        esac
+    done
+
+    shift $(expr $OPTIND - 1)
+
     input "Make sure you have booted with rescue64-pro. Cancel with CTRL-C if not."
     read answer
 
@@ -65,17 +120,40 @@ install(){
         fail "Aborted by user."
     fi
 
-    input "Enter the host name:"
-    read hostname
+    if test "x$encryptionkey" = "xnone"; then
+        input "Enter the encryption key:"
+        read -s encryptionkey
+    fi
 
-    input "Enter the domain name:"
-    read domainname
+    if test "x$hostname" = "xnone"; then
+        input "Enter the host name:"
+        read hostname
+    fi
 
-    input "Enter your user name:"
-    read username
+    if test "x$domainname" = "xnone"; then
+        input "Enter the domain name:"
+        read domainname
+    fi
 
-    input "Enter your public ssh key:"
-    read sshpubkey
+    if test "x$sshpubkey" = "xnone"; then
+        input "Enter your public ssh key:"
+        read sshpubkey
+    fi
+
+    if test "x$rootpassword" = "xnone"; then
+        input "Enter the root password:"
+        read -s rootpassword
+    fi
+
+    if test "x$username" = "xnone"; then
+        input "Enter your user name:"
+        read username
+    fi
+
+    if test "x$userpassword" = "xnone"; then
+        input "Enter the user password:"
+        read -s userpassword
+    fi
 
     info "Installing dependencies"
     apt update
@@ -96,8 +174,8 @@ install(){
     success "Created the boot partition"
 
     info "Creating the encrypted partition"
-    cryptsetup -q -s 512 -c aes-xts-plain64 luksFormat /dev/sda2
-    cryptsetup luksOpen /dev/sda2 sda2_crypt
+    printf "$encryptionkey" | cryptsetup -q -s 512 -c aes-xts-plain64 luksFormat /dev/sda2 -
+    printf "$encryptionkey" | cryptsetup luksOpen /dev/sda2 sda2_crypt --key-file -
     success "Created encrypted partition /dev/sda2"
 
     info "Creating lvm partitions"
@@ -238,12 +316,13 @@ HERE
         ca-certificates
 
     info "User configuration"
-    info "Setting root password"
-    chroot /target passwd root
     info "Adding user $username"
-    chroot /target adduser $username
-    chroot /target adduser $username sudo
-    chroot /target adduser $username adm
+    chroot /target adduser --disabled-password --gecos "" "$username"
+    chroot /target adduser "$username" sudo
+    chroot /target adduser "$username" adm
+    info "Setting passwords for root and $username"
+    printf "root:$rootpassword\n" | chroot /target chpasswd
+    printf "$username:$userpassword\n" | chroot /target chpasswd
     success "User configured"
 
     chroot /target locale-gen en_US.UTF-8
