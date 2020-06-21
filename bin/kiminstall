@@ -202,9 +202,16 @@ APT::Install-Suggests "0";
 HERE
 
     chroot /target apt update
-    chroot /target apt full-upgrade -y
-    # TODO: Choose grub installation noninteractive
-    chroot /target apt install -y \
+    DEBIAN_FRONTEND=noninteractive chroot /target \
+        apt -y \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        full-upgrade
+    DEBIAN_FRONTEND=noninteractive chroot /target \
+        apt -y \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        install \
         busybox \
         console-setup \
         cryptsetup \
