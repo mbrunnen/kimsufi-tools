@@ -161,7 +161,7 @@ install(){
     success "Installed dependencies"
 
     info "Creating the partition table"
-    parted --align optimal /dev/sda mklabel msdos
+    parted --script --align optimal /dev/sda mklabel msdos
     parted /dev/sda --align optimal mkpart primary 0% 512MiB
     parted /dev/sda --align optimal mkpart primary 512MiB 100%
     parted /dev/sda set 1 boot on
@@ -170,7 +170,7 @@ install(){
 
     info "Creating the boot partition /dev/sda1"
     sync
-    mkfs.ext4 -L boot /dev/sda1
+    mkfs.ext4 -F -L boot /dev/sda1
     success "Created the boot partition"
 
     info "Creating the encrypted partition"
