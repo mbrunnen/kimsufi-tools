@@ -37,19 +37,21 @@ main(){
     done
 
     shift $(expr $OPTIND - 1)
-
-    cmd="$1"
+    cmd=${1:-none}
+    test "x$cmd" = "xnone" || shift 1
 
     if test "x$cmd" = "xinstall"; then
-        install
+        install "$@"
     elif test "x$cmd" = "xrescue"; then
-        rescue
+        rescue "$@"
     elif test "x$cmd" = "xqemu"; then
-        qemu
+        qemu "$@"
     elif test "x$cmd" = "xsysmount"; then
-        sysmount
+        sysmount "$@"
     elif test "x$cmd" = "xunmount"; then
-        unmount
+        unmount "$@"
+    else
+        usage_msg
     fi
 }
 
