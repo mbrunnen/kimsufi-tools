@@ -8,7 +8,49 @@ LC_ALL=C.UTF-8
 LANG=C.UTF-8
 XTERM=xterm-color
 
+usage_msg() {
+    printf "SYNOPSIS\n\t$(basename $0) [OPTION(s)...] COMMAND [OPTION(s)]\n\n"
+    printf "DESCRIPTION\n"
+    printf "\tInstall script to install LVM on LUKS on a Kimsufi/OVH server.\n\n"
+    printf "OPTIONS\n"
+    printf "\t-h            Display this help message.\n\n"
+    printf "COMMANDS\n"
+    printf "\tinstall       Start the installation.\n"
+    printf "\trescue        Chroot into the install system.\n"
+    printf "\tqemu          Start qemu.\n"
+    printf "\tunmount       Unmount all devices.\n"
+}
+
 main(){
+    while getopts h o; do
+        case "$o" in
+        h)
+            usage_msg
+            exit 0
+            ;;
+        \?)
+            usage_msg
+            exit 1
+            ;;
+        esac
+    done
+
+    shift $(expr $OPTIND - 1)
+
+    cmd="$1"
+
+    if test "x$cmd" = "xinstall"; then
+        install
+    elif test "x$cmd" = "xrescue"; then
+        rescue
+    elif test "x$cmd" = "xqemu"; then
+        qemu
+    elif test "x$cmd" = "xunmount"; then
+        unmount
+    fi
+}
+
+install(){
     input "Make sure you have booted with rescue64-pro. Cancel with CTRL-C if not."
     read answer
 
@@ -211,6 +253,12 @@ HERE
     success "System initialised"
 
     info "Unmounting"
+    unmount
+    success "All done"
+    info "Reboot now into hard disk"
+}
+
+unmount(){
     umount -v /target/boot
     umount -v /target/dev
     umount -v /target/run
@@ -220,8 +268,45 @@ HERE
     swapoff -v -a
     lvchange -an /dev/mapper/vg0-root /dev/mapper/vg0-swap
     cryptsetup luksClose sda2_crypt
+}
+
+rescue(){
+    info "Starting the recovery"
+    test -b /dev/mapper/sda2_crypt || cryptsetup luksOpen /dev/sda2 sda2_crypt
+    vgchange -aay
+    mkdir -p /target
+    mountpoint -q -- "/target" || mount -v /dev/mapper/vg0-root /target
+    mountpoint -q -- "/target/boot" || mount -v /dev/sda1 /target/boot
+    mountpoint -q -- "/target/dev" || mount -v --bind /dev /target/dev
+    mountpoint -q -- "/target/run" || mount -v --bind /run /target/run
+    mountpoint -q -- "/target/proc" || mount -v -t proc proc /target/proc
+    mountpoint -q -- "/target/sys" || mount -v -t sysfs sys /target/sys
+    swapon -v /dev/mapper/vg0-swap || true
+    success "All set. Opening chroot now."
+    chroot /target /bin/bash
+    input "Do you want to unmount the volumes? [yN]"
+    read answer
+    if test "x${answer/[yY]/yes}" = "xyes"; then
+        unmount
+    fi
     success "All done"
-    info "Reboot now into hard disk"
+}
+
+qemu(){
+    info "Starting qemu"
+    info "Connect with vnc to 5900"
+    info "To forward the vnc port with ssh: ssh -L 5900:localhost:5900 <root@server>"
+    qemu-system-x86_64 \
+        -net nic \
+        -net user,hostfwd=tcp::80-:80,hostfwd=tcp::443-:443 \
+        -m 1024M \
+        -localtime \
+        -k en-us \
+        -usbdevice tablet \
+        -smp 4 \
+        -hda /dev/sda \
+        -boot order=c \
+        -vnc :0
 }
 
 success () {

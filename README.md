@@ -23,5 +23,5 @@ steps below to start the installation:
 1. Read the source. I might be doing something evil with this script.
 2. Boot your server into the `rescue64-pro` rescue image.
 3. Copy the script in `bin/kiminstall` to your kimsufi server.
-4. Start the installation with `./kiminstall`.
+4. Start the installation with `./kiminstall install`.
 5. Follow the installations.
