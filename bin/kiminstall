@@ -18,6 +18,7 @@ usage_msg() {
     printf "\tinstall       Start the installation.\n"
     printf "\trescue        Chroot into the install system.\n"
     printf "\tqemu          Start qemu.\n"
+    printf "\tsysmount      Mount the whole system.\n"
     printf "\tunmount       Unmount all devices.\n"
 }
 
@@ -45,6 +46,8 @@ main(){
         rescue
     elif test "x$cmd" = "xqemu"; then
         qemu
+    elif test "x$cmd" = "xsysmount"; then
+        sysmount
     elif test "x$cmd" = "xunmount"; then
         unmount
     fi
@@ -265,6 +268,19 @@ HERE
     info "Reboot now into hard disk"
 }
 
+sysmount(){
+    test -b /dev/mapper/sda2_crypt || cryptsetup luksOpen /dev/sda2 sda2_crypt
+    vgchange -aay
+    mkdir -p /target
+    mountpoint -q -- "/target" || mount -v /dev/mapper/vg0-root /target
+    mountpoint -q -- "/target/boot" || mount -v /dev/sda1 /target/boot
+    mountpoint -q -- "/target/dev" || mount -v --bind /dev /target/dev
+    mountpoint -q -- "/target/run" || mount -v --bind /run /target/run
+    mountpoint -q -- "/target/proc" || mount -v -t proc proc /target/proc
+    mountpoint -q -- "/target/sys" || mount -v -t sysfs sys /target/sys
+    swapon -v /dev/mapper/vg0-swap || true
+}
+
 unmount(){
     umount -v /target/boot
     umount -v /target/dev
@@ -279,16 +295,7 @@ unmount(){
 
 rescue(){
     info "Starting the recovery"
-    test -b /dev/mapper/sda2_crypt || cryptsetup luksOpen /dev/sda2 sda2_crypt
-    vgchange -aay
-    mkdir -p /target
-    mountpoint -q -- "/target" || mount -v /dev/mapper/vg0-root /target
-    mountpoint -q -- "/target/boot" || mount -v /dev/sda1 /target/boot
-    mountpoint -q -- "/target/dev" || mount -v --bind /dev /target/dev
-    mountpoint -q -- "/target/run" || mount -v --bind /run /target/run
-    mountpoint -q -- "/target/proc" || mount -v -t proc proc /target/proc
-    mountpoint -q -- "/target/sys" || mount -v -t sysfs sys /target/sys
-    swapon -v /dev/mapper/vg0-swap || true
+    sysmount
     success "All set. Opening chroot now."
     chroot /target /bin/bash
     input "Do you want to unmount the volumes? [yN]"
