@@ -1,0 +1,248 @@
+#!/bin/bash
+# https://tina.pm/blog/posts/Setting_up_my_server:_re-installing_on_an_encripted_LVM/
+[ "$DEBUG" = '1' ] && set -x
+set -eu
+
+# For chroot
+LC_ALL=C.UTF-8
+LANG=C.UTF-8
+XTERM=xterm-color
+
+main(){
+    input "Make sure you have booted with rescue64-pro. Cancel with CTRL-C if not."
+    read answer
+
+    input "All data on /dev/sda will be erased. Do you want to continue? Type \"yes\":"
+    read answer
+    if ! test "x${answer}" = "xyes"; then
+        fail "Aborted by user."
+    fi
+
+    input "Enter the host name:"
+    read hostname
+
+    input "Enter the domain name:"
+    read domainname
+
+    input "Enter your user name:"
+    read username
+
+    input "Enter your public ssh key:"
+    read sshpubkey
+
+    info "Installing dependencies"
+    apt update
+    apt install -y cryptsetup lvm2 debian-archive-keyring debootstrap
+    success "Installed dependencies"
+
+    info "Creating the partition table"
+    parted --align optimal /dev/sda mklabel msdos
+    parted /dev/sda --align optimal mkpart primary 0% 512MiB
+    parted /dev/sda --align optimal mkpart primary 512MiB 100%
+    parted /dev/sda set 1 boot on
+    parted /dev/sda print
+    success "Created the partition table"
+
+    info "Creating the boot partition /dev/sda1"
+    sync
+    mkfs.ext4 -L boot /dev/sda1
+    success "Created the boot partition"
+
+    info "Creating the encrypted partition"
+    cryptsetup -q -s 512 -c aes-xts-plain64 luksFormat /dev/sda2
+    cryptsetup luksOpen /dev/sda2 sda2_crypt
+    success "Created encrypted partition /dev/sda2"
+
+    info "Creating lvm partitions"
+    pvcreate /dev/mapper/sda2_crypt
+    vgcreate vg0 /dev/mapper/sda2_crypt
+    lvcreate -L 500m -n root vg0
+    lvcreate -L 500m -n swap vg0
+    lvresize -l 100%FREE -n vg0/root
+    lvdisplay
+
+    # actually not necessary to activate again
+    vgchange -aay
+    mkfs.ext4 -L root /dev/mapper/vg0-root
+    mkswap -L swap /dev/mapper/vg0-swap
+    parted /dev/sda print
+    parted /dev/mapper/vg0-root print
+    parted /dev/mapper/vg0-swap print
+    success "Created the lvm volumes /dev/mapper/root and /dev/mapper/swap"
+
+    info "Mounting the volumes"
+    mkdir -p /target
+    mount -v /dev/mapper/vg0-root /target
+    mkdir -p /target/boot
+    mount -v /dev/sda1 /target/boot
+    swapon -v /dev/mapper/vg0-swap
+    success "Volumes mounted"
+
+    info "Installing"
+    gpg /usr/share/keyrings/debian-archive-keyring.gpg
+    debootstrap --arch amd64 buster /target http://debian.mirrors.ovh.net/debian
+    success "Installed"
+
+    info "Mounting runtime"
+    # necessary for chroot
+    mount -v --bind /dev /target/dev
+    mount -v --bind /run /target/run
+    mount -v -t proc proc /target/proc
+    mount -v -t sysfs sys /target/sys
+    success "Runtime mounted"
+
+    info "Creating fstab and crypttab"
+    uuid="$(cryptsetup luksDump /dev/sda2 | grep UUID | awk '{print $2}')"
+    info "Creating /etc/crypttab"
+    cat << HERE | tee /target/etc/crypttab
+sda2_crypt UUID=$uuid none luks
+HERE
+
+    info "Creating /etc/fstab"
+    cat << HERE | tee /target/etc/fstab
+# file system           mount point type    options                     dump    pass
+/dev/sda1               /boot       ext4    rw,nosuid,nodev,relatime    0       2
+/dev/mapper/vg0-root    /           ext4    errors=remount-ro,relatime  0       1
+/dev/mapper/vg0-swap    none        swap    sw                          0       0
+HERE
+
+    chroot /target ln -vsf /proc/mounts /etc/mtab
+    success "Created fstab and crypttab"
+
+    info "Creating the network configuration"
+    info "Creating /etc/network/interfaces"
+    cat << HERE | tee /target/etc/network/interfaces
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+HERE
+
+    info "Creating /etc/resolv.conf"
+    cat << HERE | tee /target/etc/resolv.conf
+search $domainname
+nameserver 213.186.33.99
+nameserver 1.1.1.1
+nameserver 1.0.0.1
+HERE
+
+    info "Creating /etc/hostname"
+    printf "$hostname\n" | tee /target/etc/hostname
+
+    info "Creating /etc/hosts"
+    cat << HERE | tee /target/etc/hosts
+127.0.0.1       localhost
+::1             localhost ip6-localhost ip6-loopback
+ff02::1         ip6-allnodes
+ff02::2         ip6-allrouters
+127.0.1.1       $hostname.$domainname $hostname
+HERE
+    success "Created the network configuration"
+
+    info "Configuring time"
+    printf "0.0 0 0.0\n0\nUTC\n" | tee /target/etc/adjtime
+    printf "UTC\n" | tee /target/etc/timezone
+    chroot /target dpkg-reconfigure -f noninteractive tzdata
+    success "Configured time"
+
+    info "Updating and installing dependencies"
+    cat << HERE | tee /target/etc/apt/sources.list
+deb http://debian.mirrors.ovh.net/debian buster main non-free contrib
+deb http://debian.mirrors.ovh.net/debian buster-updates main non-free contrib
+deb http://debian.mirrors.ovh.net/debian buster-backports main non-free contrib
+deb http://debian.mirrors.ovh.net/debian-security buster/updates main non-free contrib
+HERE
+
+    cat << HERE | tee /target/etc/apt/apt.conf.d/02aptsettings
+APT::Install-Recommends "0";
+APT::Install-Suggests "0";
+HERE
+
+    chroot /target apt update
+    chroot /target apt full-upgrade -y
+    # TODO: Choose grub installation noninteractive
+    warning 'Choose /dev/sda as grup install location'
+    chroot /target apt install -y \
+        busybox \
+        console-setup \
+        cryptsetup \
+        dropbear \
+        grub-pc \
+        ifupdown \
+        initramfs-tools \
+        kbd \
+        linux-image-amd64 \
+        locales \
+        lvm2 \
+        makedev \
+        ssh \
+        initscripts \
+        vim \
+        less \
+        ntpdate \
+        sudo \
+        ca-certificates
+
+    info "User configuration"
+    info "Setting root password"
+    chroot /target passwd root
+    info "Adding user $username"
+    chroot /target adduser $username
+    chroot /target adduser $username sudo
+    chroot /target adduser $username adm
+    success "User configured"
+
+    chroot /target locale-gen en_US.UTF-8
+    chroot /target dpkg-reconfigure -f noninteractive locales
+    success "Updated and installed dependencies"
+
+    info "System initialisation"
+    mkdir -p /target/root/.ssh
+    chmod 600 /target/root/.ssh
+    printf "$sshpubkey\n" > /target/root/.ssh/authorized_keys
+    printf "$sshpubkey\n" > /target/etc/dropbear-initramfs/authorized_keys
+    sed -i 's/GRUB_CMDLINE_LINUX=\"\"/GRUB_CMDLINE_LINUX=\"net.ifnames=0\ biosdevname=0\ ip=:::::eth0:dhcp\"/g' /target/etc/default/grub
+    sed -i 's/^#GRUB_TERMINAL=console$/GRUB_TERMINAL=console/' /target/etc/default/grub
+    sed -i 's/^#FSCKFIX=no$/FSCKFIX=yes/' /target/etc/default/rcS
+    sed -i 's/^#Storage=auto$/Storage=persistent/' /etc/systemd/journald.conf
+    chroot /target update-grub
+    chroot /target update-initramfs -u
+    success "System initialised"
+
+    info "Unmounting"
+    umount -v /target/boot
+    umount -v /target/dev
+    umount -v /target/run
+    umount -v /target/proc
+    umount -v /target/sys
+    umount -v /target
+    swapoff -v -a
+    lvchange -an /dev/mapper/vg0-root /dev/mapper/vg0-swap
+    cryptsetup luksClose sda2_crypt
+    success "All done"
+    info "Reboot now into hard disk"
+}
+
+success () {
+    printf "[%b%s%b]\t%s\n" "\033[92m" "OK" "\033[0m" "$1"
+}
+
+info () {
+    printf "[%b%s%b]\t%s\n" "\033[94m" "INFO" "\033[0m" "$1"
+}
+
+warning () {
+    printf "[%b%s%b]\t%s\n" "\033[93m" "WARN" "\033[0m" "$1" >&2
+}
+
+fail () {
+    printf "[%b%s%b]\t%s\n" "\033[91m" "FAIL" "\033[0m" "$1" >&2
+    exit 1
+}
+
+input () {
+    printf "[%b%s%b]\t%s\n" "\033[96m" "INPUT" "\033[0m" "$1"
+}
+
+main "$@"
