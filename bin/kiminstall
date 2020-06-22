@@ -315,7 +315,8 @@ HERE
         sudo \
         ca-certificates \
         zsh \
-        tree
+        tree \
+        docker
 
     info "User configuration"
     info "Adding user $username"
