@@ -25,6 +25,35 @@ steps below to start the installation:
 4. Start the installation with `./kiminstall install`.
 5. Follow the installations.
 
+## Partition scheme
+
+The partition table is a MBR, a GPT table would too complicated in this case,
+because we need grub for unlocking the disk per SSH. For using grub with GPT, so
+we would need an additional grub-bios partition. MBR is much simpler here.
+
+Maybe there is a way to have GPT without extra partition, but right now I got
+this error, when using GPT:
+```
+grub-install: warning: this GPT partition label contains no BIOS Boot Partition;
+    embedding won't be possible.
+grub-install: warning: Embedding is not possible.  GRUB can only be installed in
+    this setup by using blocklists.  However, blocklists are UNRELIABLE and
+    their use is discouraged..
+grub-install: error: will not proceed with blocklists.
+```
+
+The partition scheme after installation will look like this:
+
+```
+NAME           MAJ:MIN RM   SIZE RO TYPE  MOUNTPOINT
+sda              8:0    0 465.8G  0 disk
+├─sda1           8:1    0   511M  0 part  /boot
+└─sda2           8:2    0 465.3G  0 part
+  └─sda2_crypt 251:0    0 465.3G  0 crypt
+    ├─vg0-root 251:1    0 464.3G  0 lvm   /
+    └─vg0-swap 251:2    0   500M  0 lvm   [SWAP]
+```
+
 ## Help
 
 Use `./kiminstall -h` and `./kiminstall <command> -h` for help messages.
