@@ -313,7 +313,9 @@ HERE
         less \
         ntpdate \
         sudo \
-        ca-certificates
+        ca-certificates \
+        zsh \
+        tree
 
     info "User configuration"
     info "Adding user $username"
