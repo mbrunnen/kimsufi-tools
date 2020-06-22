@@ -1,4 +1,14 @@
 #!/bin/bash
+
+#!/usr/bin/expect
+# https://www.journaldev.com/1405/expect-script-ssh-example-tutorial
+# Usage kiminstall <host>
+# spawn /usr/bin/ssh \
+    # -oUserKnownHostsFile=/dev/null \
+    # -oStrictHostKeyChecking=no \
+    # -oCheckHostIP=no \
+    # root@$[lindex $argv 0]
+
 # https://tina.pm/blog/posts/Setting_up_my_server:_re-installing_on_an_encripted_LVM/
 [ "$DEBUG" = '1' ] && set -x
 set -eu
