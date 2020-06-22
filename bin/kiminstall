@@ -333,8 +333,11 @@ HERE
 
     info "System initialisation"
     mkdir -p /target/root/.ssh
-    chmod 600 /target/root/.ssh
+    chmod 700 /target/root/.ssh
+    mkdir -p "/target/home/$username/.ssh"
+    chmod 700 "/target/home/$username/.ssh"
     printf "$sshpubkey\n" > /target/root/.ssh/authorized_keys
+    printf "$sshpubkey\n" > "/target/home/$username/.ssh/authorized_keys"
     printf "$sshpubkey\n" > /target/etc/dropbear-initramfs/authorized_keys
     sed -i 's/GRUB_CMDLINE_LINUX=\"\"/GRUB_CMDLINE_LINUX=\"net.ifnames=0\ biosdevname=0\ ip=:::::eth0:dhcp\"/g' /target/etc/default/grub
     sed -i 's/^#GRUB_TERMINAL=console$/GRUB_TERMINAL=console/' /target/etc/default/grub
