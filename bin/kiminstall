@@ -403,7 +403,7 @@ HERE
     sed -i "s/^GRUB_CMDLINE_LINUX=\".*\"/GRUB_CMDLINE_LINUX=\"net.ifnames=0\ biosdevname=0\ ip=$address4::$gateway4:$full_netmask4::eth0:none\"/g" /target/etc/default/grub
     sed -i 's/^#GRUB_TERMINAL=console$/GRUB_TERMINAL=console/' /target/etc/default/grub
     sed -i 's/^#FSCKFIX=no$/FSCKFIX=yes/' /target/etc/default/rcS
-    sed -i 's/^#Storage=auto$/Storage=persistent/' /etc/systemd/journald.conf
+    sed -i 's/^#Storage=auto$/Storage=persistent/' /target/etc/systemd/journald.conf
     chroot /target grub-install /dev/sda
     chroot /target update-grub
     chroot /target update-initramfs -u
