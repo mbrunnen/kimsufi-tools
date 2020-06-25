@@ -63,6 +63,12 @@ install(){
     rootpassword=none
     username=none
     userpassword=none
+    address4=none
+    gateway4=none
+    slash_netmask4=none
+    full_netmask4=none
+    address6=none
+    gateway6=none
 
     usage_msg(){
         printf "OPTIONS\n"
@@ -120,6 +126,8 @@ install(){
         fail "Aborted by user."
     fi
 
+    # TODO: Use a configuration file instead of options or prompting.
+
     if test "x$encryptionkey" = "xnone"; then
         input "Enter the encryption key:"
         read -s encryptionkey
@@ -153,6 +161,36 @@ install(){
     if test "x$userpassword" = "xnone"; then
         input "Enter the user password:"
         read -s userpassword
+    fi
+
+    if test "x$address4" = "xnone"; then
+        input "Enter the IP v4 address, e.g. 1.2.3.4:"
+        read -s address4
+    fi
+
+    if test "x$slash_netmask4" = "xnone"; then
+        input "Enter the IP v4 slashed netmask, e.g. /24:"
+        read -s slash_netmask4
+    fi
+
+    if test "x$full_netmask4" = "xnone"; then
+        input "Enter the IP v4 full netmask, e.g. 255.255.255.0:"
+        read -s full_netmask4
+    fi
+
+    if test "x$gateway4" = "xnone"; then
+        input "Enter the IP v4 gateway, e.g. 1.2.3.254:"
+        read -s address4
+    fi
+
+    if test "x$address6" = "xnone"; then
+        input "Enter the IP v6 address, e.g. 1:2:3:4444::1/64:"
+        read -s address4
+    fi
+
+    if test "x$gateway6" = "xnone"; then
+        input "Enter the IP v6 gateway, e.g. 1:2:3:44ff::1/64:"
+        read -s address4
     fi
 
     info "Installing dependencies"
@@ -241,7 +279,25 @@ auto lo
 iface lo inet loopback
 
 auto eth0
-iface eth0 inet dhcp
+iface eth0 inet static
+    address $address4$slash_netmask4
+    gateway $gateway4
+    pre-up /sbin/ip addr flush dev eth0 || true
+
+iface eth0 inet6 static
+    address $address6
+    post-up /sbin/ip -6 route add $gateway6 dev eth0
+    post-up /sbin/ip -6 route add default via 20
+HERE
+
+    info "Creating /etc/sysctl.d/local.conf"
+    cat << HERE | tee /target/etc/sysctl.d/local.conf
+net.ipv6.conf.all.autoconf = 0
+net.ipv6.conf.default.autoconf = 0
+net.ipv6.conf.eth0.autoconf = 0
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.default.accept_ra = 0
+net.ipv6.conf.eth0.accept_ra = 0
 HERE
 
     info "Creating /etc/resolv.conf"
@@ -340,7 +396,7 @@ HERE
     printf "$sshpubkey\n" > /target/root/.ssh/authorized_keys
     printf "$sshpubkey\n" > "/target/home/$username/.ssh/authorized_keys"
     printf "$sshpubkey\n" > /target/etc/dropbear-initramfs/authorized_keys
-    sed -i 's/GRUB_CMDLINE_LINUX=\"\"/GRUB_CMDLINE_LINUX=\"net.ifnames=0\ biosdevname=0\ ip=:::::eth0:dhcp\"/g' /target/etc/default/grub
+    sed -i "s/^GRUB_CMDLINE_LINUX=\".*\"/GRUB_CMDLINE_LINUX=\"net.ifnames=0\ biosdevname=0\ ip=$address4::$gateway4:$full_netmask4::eth0:none\"/g" /target/etc/default/grub
     sed -i 's/^#GRUB_TERMINAL=console$/GRUB_TERMINAL=console/' /target/etc/default/grub
     sed -i 's/^#FSCKFIX=no$/FSCKFIX=yes/' /target/etc/default/rcS
     sed -i 's/^#Storage=auto$/Storage=persistent/' /etc/systemd/journald.conf
