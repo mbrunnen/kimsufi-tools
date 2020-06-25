@@ -329,10 +329,14 @@ HERE
 
     info "Updating and installing dependencies"
     cat << HERE | tee /target/etc/apt/sources.list
-deb http://debian.mirrors.ovh.net/debian buster main non-free contrib
-deb http://debian.mirrors.ovh.net/debian buster-updates main non-free contrib
-deb http://debian.mirrors.ovh.net/debian buster-backports main non-free contrib
-deb http://debian.mirrors.ovh.net/debian-security buster/updates main non-free contrib
+deb     http://debian.mirrors.ovh.net/debian            buster              main non-free contrib
+deb-src http://debian.mirrors.ovh.net/debian            buster              main non-free contrib
+deb     http://debian.mirrors.ovh.net/debian            buster-updates      main non-free contrib
+deb-src http://debian.mirrors.ovh.net/debian            buster-updates      main non-free contrib
+deb     http://debian.mirrors.ovh.net/debian            buster-backports    main non-free contrib
+deb-src http://debian.mirrors.ovh.net/debian            buster-backports    main non-free contrib
+deb     http://debian.mirrors.ovh.net/debian-security   buster/updates      main non-free contrib
+deb-src http://debian.mirrors.ovh.net/debian-security   buster/updates      main non-free contrib
 HERE
 
     cat << HERE | tee /target/etc/apt/apt.conf.d/02aptsettings
