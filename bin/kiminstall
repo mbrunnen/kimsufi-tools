@@ -56,29 +56,14 @@ main(){
 }
 
 install(){
-    encryptionkey=none
-    hostname=none
-    domainname=none
-    sshpubkey=none
-    rootpassword=none
-    username=none
-    userpassword=none
-    address4=none
-    gateway4=none
-    slash_netmask4=none
-    full_netmask4=none
-    address6=none
-    gateway6=none
-
     usage_msg(){
+        printf "SYNOPSIS\n\t$(basename $0) install [OPTION(s)...]\n"
+        printf "\t  CONFIGURATION-FILE  Configuration file.\n"
         printf "OPTIONS\n"
+        printf "\n\tinstall [OPTION(s)...]\n"
         printf "\t-e <key>              Disk encryption key.\n"
-        printf "\t-n <name>             Host name.\n"
-        printf "\t-d <name>             Domain name.\n"
-        printf "\t-s <key>              SSH public key.\n"
         printf "\t-r <password>         Root password.\n"
-        printf "\t-u <name>             User name.\n"
-        printf "\t-p <password>         User password.\n\n"
+        printf "\t-p <password>         User password.\n"
     }
 
     while getopts he:n:d:s:r:u:p: o; do
@@ -90,20 +75,8 @@ install(){
         e)
             encryptionkey=$OPTARG
             ;;
-        n)
-            hostname=$OPTARG
-            ;;
-        d)
-            domainname=$OPTARG
-            ;;
-        s)
-            sshpubkey=$OPTARG
-            ;;
         r)
             rootpassword=$OPTARG
-            ;;
-        u)
-            username=$OPTARG
             ;;
         p)
             userpassword=$OPTARG
@@ -116,6 +89,14 @@ install(){
     done
 
     shift $(expr $OPTIND - 1)
+
+    cfg_file="$1"
+
+    if test "x$cfg_file" = 'x' || test ! -f "$cfg_file"; then
+        fail "No configuration file provided."
+    else
+        source "$cfg_file"
+    fi
 
     input "Make sure you have booted with rescue64-pro. Cancel with CTRL-C if not."
     read answer
@@ -180,18 +161,33 @@ install(){
 
     if test "x$gateway4" = "xnone"; then
         input "Enter the IP v4 gateway, e.g. 1.2.3.254:"
-        read -s address4
+        read -s gateway4
     fi
 
     if test "x$address6" = "xnone"; then
-        input "Enter the IP v6 address, e.g. 1:2:3:4444::1/64:"
-        read -s address4
+        input "Enter the IP v6 address, e.g. 1:2:3:4444::1/128:"
+        read -s address6
     fi
 
     if test "x$gateway6" = "xnone"; then
-        input "Enter the IP v6 gateway, e.g. 1:2:3:44ff::1/64:"
-        read -s address4
+        input "Enter the IP v6 gateway, e.g. 1:2:3:44ff::1:"
+        read -s gateway6
     fi
+
+    info "Your Configuration:\n"
+    echo "$encryptionkey"
+    echo "$hostname"
+    echo "$domainname"
+    echo "$sshpubkey"
+    echo "$rootpassword"
+    echo "$username"
+    echo "$userpassword"
+    echo "$address4"
+    echo "$gateway4"
+    echo "$slash_netmask4"
+    echo "$full_netmask4"
+    echo "$address6"
+    echo "$gateway6"
 
     info "Installing dependencies"
     apt update
