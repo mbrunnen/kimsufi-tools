@@ -398,6 +398,7 @@ HERE
     chmod 700 /target/root/.ssh
     mkdir -p "/target/home/$username/.ssh"
     chmod 700 "/target/home/$username/.ssh"
+    chown -R $username:$username "/target/home/$username/.ssh"
     printf "$sshpubkey\n" > /target/root/.ssh/authorized_keys
     printf "$sshpubkey\n" > "/target/home/$username/.ssh/authorized_keys"
     printf "$sshpubkey\n" > /target/etc/dropbear-initramfs/authorized_keys
