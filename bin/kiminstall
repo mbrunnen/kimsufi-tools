@@ -374,7 +374,10 @@ HERE
         ca-certificates \
         zsh \
         tree \
-        docker
+        docker.io \
+        docker-compose \
+        git \
+        rsync
 
     info "User configuration"
     info "Adding user $username"
