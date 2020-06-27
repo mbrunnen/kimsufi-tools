@@ -278,12 +278,14 @@ auto eth0
 iface eth0 inet static
     address $address4$slash_netmask4
     gateway $gateway4
-    pre-up /sbin/ip addr flush dev eth0 || true
+    pre-up /sbin/ip addr flush dev eth0
 
 iface eth0 inet6 static
     address $address6
     post-up /sbin/ip -6 route add $gateway6 dev eth0
-    post-up /sbin/ip -6 route add default via 20
+    post-up /sbin/ip -6 route add default via $gateway6 dev eth0
+    pre-down /sbin/ip -6 route del default via $gateway6 dev eth0
+    pre-down /sbin/ip -6 route del $gateway6 dev eth0
 HERE
 
     info "Creating /etc/sysctl.d/local.conf"
