@@ -319,10 +319,13 @@ ff02::2         ip6-allrouters
 HERE
     success "Created the network configuration"
 
-    info "Configuring time"
-    printf "0.0 0 0.0\n0\nUTC\n" | tee /target/etc/adjtime
-    printf "UTC\n" | tee /target/etc/timezone
-    chroot /target dpkg-reconfigure -f noninteractive tzdata
+    info "Configuring timezone"
+    # XXX: use a configuration value
+    # XXX: using timedatectl is untested
+    chroot /target timedatectl set-timezone Europe/Berlin
+    # printf "Europe/Berlin\n" | tee /target/etc/timezone
+    # chroot /target dpkg-reconfigure -f noninteractive tzdata
+
     success "Configured time"
 
     info "Updating and installing dependencies"
